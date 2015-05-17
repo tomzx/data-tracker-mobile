@@ -1,0 +1,8 @@
+<ion-content>
+	<div class="list">
+		<label class="item item-input item-stacked-label" data-ng-repeat="datum in data">
+			<span class="input-label">{{ datum.name }}</span>
+			<input type="number" step="0.25" placeholder="value" data-ng-model="datum.value">
+		</label>
+	</div>
+</ion-content>
