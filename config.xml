@@ -1,12 +1,12 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <widget id="org.coreteks.data-tracker-reminder" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <name>DT Reminder</name>
-    <description>
+  <name>DT Reminder</name>
+  <description>
         A simple application to send you reminder to enter data into Data Tracker.
     </description>
-    <author email="tom.rochette@coreteks.org" href="http://www.coreteks.org">
+  <author email="tom.rochette@coreteks.org" href="http://www.coreteks.org">
         Coreteks Inc.
     </author>
-    <content src="index.html" />
-    <access origin="*" />
+  <content src="index.html"/>
+  <access origin="*"/>
 </widget>
