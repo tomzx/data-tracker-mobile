@@ -16,6 +16,11 @@ dtReminderApp.config(function($stateProvider, $urlRouterProvider) {
 			url: '/items/:itemId',
 			templateUrl: 'item/edit.html',
 			controller: 'ItemEditController',
+		})
+		.state('item-data-create', {
+			url: '/items/:itemId/data/create',
+			templateUrl: 'item/data/create.html',
+			controller: 'ItemDataCreateController',
 		});
 
 		$urlRouterProvider.otherwise('/home');
@@ -89,6 +94,40 @@ dtReminderApp.controller('ItemEditController', function($controller, $scope, $st
 	};
 });
 
+dtReminderApp.controller('ItemDataCreateController', function($controller, $scope, $stateParams, $ionicHistory, ItemService, DataTrackerService) {
+	var id = $stateParams.itemId;
+
+	$scope.item = ItemService.get(id);
+	$scope.data = [];
+
+	angular.forEach($scope.item.metrics, function(metric) {
+		var data = {
+			timestamp: metric.when,
+			name: metric.name,
+			value: null, // TODO: Fetch/Get the last value that was used for this metric
+		};
+
+		$scope.data.push(data);
+	});
+
+	$scope.push = function() {
+		for (var index in $scope.data) {
+			var data = $scope.data[index];
+			if (data.value === null) {
+				showToast('Missing data.');
+				return;
+			}
+		}
+
+		DataTrackerService.push($scope.data)
+		.then(function() {
+			showToast('Data pushed for item "' + $scope.item.name + '"!');
+		});
+
+		$ionicHistory.goBack();
+	};
+});
+
 dtReminderApp.service('ItemService', function($rootScope) {
 	var $scope = $rootScope.$new();
 	var items = [];
@@ -150,3 +189,37 @@ dtReminderApp.service('ItemService', function($rootScope) {
 		$scope.$on(id, callback);
 	};
 });
+
+dtReminderApp.service('DataTrackerService', function($q, $http) {
+	this.push = function(data) {
+		var deferred = $q.defer();
+
+		var sentData = [];
+		angular.forEach(data, function(datum) {
+			var formattedData = {};
+			formattedData['_timestamp'] = datum.timestamp;
+			formattedData[datum.name] = datum.value;
+			sentData.push(formattedData);
+		});
+
+		$http.post('http://data-tracker.dev/logs/bulk', sentData)
+		.success(function() {
+			deferred.resolve();
+		})
+		.error(function() {
+			deferred.reject();
+		});
+
+		return deferred.promise;
+	};
+});
+
+window.plugins = window.plugins || {};
+
+var showToast = function(message, duration, position) {
+	duration = duration || 'short';
+	position = position || 'bottom';
+
+	var toast = window.plugins.toast || {show: function() { console.log(message); }};
+	toast.show(message, duration, position);
+};

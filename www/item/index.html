@@ -11,9 +11,12 @@
 
 	<ion-content>
 		<ion-list show-delete="shouldShowDelete" show-reorder="shouldShowReorder">
-			<ion-item class="item-icon-right" href="#/items/{{$index}}" collection-repeat="item in items">
+			<ion-item class="item-icon-right" href="#/items/{{$index}}/data/create" collection-repeat="item in items">
 				<ion-delete-button class="ion-minus-circled" ng-click="removeItem($index)"></ion-delete-button>
 				{{ item.name }}
+				<ion-option-button class="button-info" data-ui-sref="item-edit({itemId: $index})">
+					Edit
+				</ion-option-button>
 				<i class="icon ion-chevron-right"></i>
 				<!-- <ion-reorder-button class="ion-navicon" on-reorder="reorderItem($fromIndex, $toIndex)"></ion-reorder-button> -->
 			</ion-item>
