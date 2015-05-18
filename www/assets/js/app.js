@@ -21,6 +21,11 @@ dtReminderApp.config(function($stateProvider, $urlRouterProvider) {
 			url: '/items/:itemId/data/create',
 			templateUrl: 'item/data/create.html',
 			controller: 'ItemDataCreateController',
+		})
+		.state('settings', {
+			url: '/settings',
+			templateUrl: 'settings.html',
+			controller: 'SettingsController',
 		});
 
 		$urlRouterProvider.otherwise('/home');
@@ -29,23 +34,22 @@ dtReminderApp.config(function($stateProvider, $urlRouterProvider) {
 dtReminderApp.controller('ItemIndexController', function($scope, ItemService, ReminderService) {
 	$scope.shouldShowDelete = false;
 	$scope.shouldShowReorder = false;
-	$scope.items = ItemService.all();
+	$scope.items = _.values(ItemService.all());
 
 	$scope.removeItem = function(item) {
 		ReminderService.cancelReminder(item);
 		ItemService.delete(item);
-		$scope.items = ItemService.all();
-	};
-
-	$scope.reorderItem = function(fromIndex, toIndex) {
-		ItemService.move(fromIndex, toIndex);
-		$scope.items = ItemService.all();
+		$scope.items = getItemsList();
 	};
 
 	ItemService.$on('itemsUpdated', function() {
 		console.log('item list updated!');
-		$scope.items = ItemService.all();
+		$scope.items = getItemsList();
 	});
+
+	var getItemsList = function() {
+		return _.values(ItemService.all());
+	};
 });
 
 dtReminderApp.controller('ItemFormController', function($scope) {
@@ -79,7 +83,7 @@ dtReminderApp.controller('ItemCreateController', function($controller, $scope, $
 
 	$scope.save = function() {
 		ReminderService.configureReminder($scope.item);
-		ItemService.push($scope.item);
+		ItemService.add($scope.item);
 		$ionicHistory.goBack();
 	};
 });
@@ -92,7 +96,7 @@ dtReminderApp.controller('ItemEditController', function($controller, $scope, $st
 	var id = $stateParams.itemId;
 	console.log('Editing ' + id);
 
-	angular.extend($scope.item, ItemService.findById(id) || {});
+	angular.extend($scope.item, ItemService.get(id) || {});
 
 	// When we deserialize the object for display, the startAt field is stored as a string and must be converted to a Date object for angular to properly manage it.
 	$scope.item.reminder.startAt = $scope.item.reminder.startAt ? new Date($scope.item.reminder.startAt) : null;
@@ -109,7 +113,7 @@ dtReminderApp.controller('ItemEditController', function($controller, $scope, $st
 dtReminderApp.controller('ItemDataCreateController', function($controller, $scope, $stateParams, $ionicHistory, ItemService, DataTrackerService) {
 	var id = $stateParams.itemId;
 
-	$scope.item = ItemService.findById(id);
+	$scope.item = ItemService.get(id);
 	$scope.data = [];
 
 	angular.forEach($scope.item.metrics, function(metric) {
@@ -140,65 +144,43 @@ dtReminderApp.controller('ItemDataCreateController', function($controller, $scop
 	};
 });
 
+dtReminderApp.controller('SettingsController', function($scope, $ionicHistory, SettingService) {
+	$scope.settings = SettingService.all();
+
+	$scope.save = function() {
+		// TODO: Test that the service_url is valid and responds
+		SettingService.setMany($scope.settings);
+		SettingService.save();
+		$ionicHistory.goBack();
+	};
+});
+
 dtReminderApp.service('ItemService', function($rootScope) {
 	var $scope = $rootScope.$new();
-	var items = [];
-
-	if (localStorage['items']) {
-		items = JSON.parse(localStorage['items']);
-	}
+	var items = JSON.parse(localStorage['items'] || "{}");
 
 	this.all = function() {
-		return items;
+		return angular.copy(items);
 	};
 
-	this.findById = function(id) {
-		return _.find(items, function(item) {
-			return item.id === id;
-		});
+	this.get = function(id) {
+		return angular.copy(items[id]);
 	};
 
-	this.get = function(index) {
-		return angular.copy(items[index]);
-	};
-
-	this.set = function(index, data) {
-		items[index] = data;
+	this.set = function(id, data) {
+		items[id] = data;
 		persist();
 	};
 
-	this.insert = function(index, data) {
-		items.splice(index, 0, data);
+	this.add = function(data) {
+		items[data.id] = data;
 		persist();
-	}
+	};
 
 	this.delete = function(item) {
-		var index = _.findIndex(items, function(testedItem) {
-			return testedItem.id === item.id;
-		});
-		if (index === -1) {
-			return;
-		}
-		var item = items.splice(index, 1);
+		delete items[item.id];
 		persist();
 		return item;
-	};
-
-	this.push = function(data) {
-		items.push(data);
-		persist();
-	};
-
-	this.pop = function() {
-		return items.pop();
-		persist();
-	};
-
-	this.move = function(fromIndex, toIndex) {
-		var item = items[fromIndex];
-		items.splice(toIndex, 0, item);
-		items.splice(fromIndex, 1);
-		persist();
 	};
 
 	var persist = function() {
@@ -214,7 +196,7 @@ dtReminderApp.service('ItemService', function($rootScope) {
 	};
 });
 
-dtReminderApp.service('DataTrackerService', function($q, $http) {
+dtReminderApp.service('DataTrackerService', function($q, $http, SettingService) {
 	this.push = function(data) {
 		var deferred = $q.defer();
 
@@ -226,7 +208,8 @@ dtReminderApp.service('DataTrackerService', function($q, $http) {
 			sentData.push(formattedData);
 		});
 
-		$http.post('http://data-tracker.dev/logs/bulk', sentData)
+		var serviceUrl = SettingService.get('service_url') || 'http://dev-tracker.dev';
+		$http.post(serviceUrl + '/logs/bulk', sentData)
 		.success(function() {
 			deferred.resolve();
 		})
@@ -313,6 +296,34 @@ dtReminderApp.service('ReminderService', function($state) {
 		data.id = item.reminder.id;
 		console.log('Scheduling redminder id = ' + item.reminder.id);
 		notification.local.schedule(data);
+	};
+});
+
+dtReminderApp.service('SettingService', function() {
+	var settings = JSON.parse(localStorage['settings'] || "{}");
+
+	this.load = function() {
+		settings = JSON.parse(localStorage['settings'] || "{}");
+	};
+
+	this.save = function() {
+		localStorage['settings'] = JSON.stringify(settings);
+	};
+
+	this.get = function(key) {
+		return angular.copy(settings[key]);
+	};
+
+	this.all = function() {
+		return angular.copy(settings);
+	}
+
+	this.set = function(key, value) {
+		settings[key] = value;
+	};
+
+	this.setMany = function(values) {
+		angular.extend(settings, values);
 	};
 });
 
