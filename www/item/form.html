@@ -22,14 +22,24 @@
 		<div data-ng-repeat="metric in item.metrics">
 			<div class="item item-input item-divider">
 				<input type="text" placeholder="Name" data-ng-model="metric.name">
+				<div class="pull-right">
+					<button class="button button-small button-icon icon ion-minus-circled" ng-click="removeMetric($index)"></button>
+				</div>
 			</div>
 			<div class="item item-input">
 				<input type="text" placeholder="When?" data-ng-model="metric.when">
 			</div>
 		</div>
-
-		<div class="button button-full button-balanced button-add-metric item text-center" data-ng-click="addMetric()">
-			<i class="icon ion-plus"></i> Add metric
-		</div>
 	</div>
 </ion-content>
+
+<ion-footer-bar align-title="left" class="bar-assertive">
+	<div class="buttons">
+		<div class="buttons">
+		</div>
+		<h1 class="title"></h1>
+		<div class="buttons">
+			<a class="button" href="#" data-ng-click="addMetric()">Add metric</a>
+		</div>
+	</div>
+</ion-footer-bar>

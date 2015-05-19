@@ -72,6 +72,10 @@ dtReminderApp.controller('ItemFormController', function($scope) {
 
 		$scope.item.metrics.push(metric);
 	};
+
+	$scope.removeMetric = function(index) {
+		$scope.item.metrics.splice(index, 1);
+	};
 });
 
 dtReminderApp.controller('ItemCreateController', function($controller, $scope, $stateParams, $ionicHistory, ItemService, ReminderService) {
