@@ -1,0 +1,19 @@
+<ion-view view-title="Settings">
+	<ion-nav-bar class="bar-positive">
+		<ion-nav-back-button></ion-nav-back-button>
+		<ion-nav-buttons side="right">
+			<button class="button" data-ng-click="save()">
+				Save
+			</button>
+		</ion-nav-buttons>
+	</ion-nav-bar>
+
+	<ion-content>
+		<div class="list">
+			<label class="item item-input item-stacked-label">
+				<span class="input-label">Service URL</span>
+				<input type="text" placeholder="http://www.data-tracker.com" data-ng-model="settings.service_url">
+			</label>
+		</div>
+	</ion-content>
+</ion-view>
