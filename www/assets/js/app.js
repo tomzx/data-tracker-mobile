@@ -1,5 +1,9 @@
 var dtReminderApp = angular.module('dtReminderApp', ['ionic']);
 
+dtReminderApp.run(function(ConnectionService) {
+	ConnectionService.initialize();
+});
+
 dtReminderApp.config(function($stateProvider, $urlRouterProvider) {
 	$stateProvider
 		.state('home', {
@@ -26,6 +30,11 @@ dtReminderApp.config(function($stateProvider, $urlRouterProvider) {
 			url: '/settings',
 			templateUrl: 'settings.html',
 			controller: 'SettingsController',
+		})
+		.state('debugging', {
+			url: '/debugging',
+			templateUrl: 'debugging.html',
+			controller: 'DebuggingController',
 		});
 
 		$urlRouterProvider.otherwise('/home');
@@ -159,6 +168,18 @@ dtReminderApp.controller('SettingsController', function($scope, $ionicHistory, S
 	};
 });
 
+dtReminderApp.controller('DebuggingController', function($scope, ReminderService) {
+	$scope.reminders = {};
+
+	ReminderService.getReminders().then(function(notifications) {
+		$scope.reminders = notifications;
+	});
+
+	$scope.updateNotifications = function() {
+		ReminderService.updateNotifications();
+	}
+});
+
 dtReminderApp.service('ItemService', function($rootScope) {
 	var $scope = $rootScope.$new();
 	var items = JSON.parse(localStorage['items'] || "{}");
@@ -200,26 +221,34 @@ dtReminderApp.service('ItemService', function($rootScope) {
 	};
 });
 
-dtReminderApp.service('DataTrackerService', function($q, $http, SettingService) {
+dtReminderApp.service('DataTrackerService', function($q, $http, SettingService, ConnectionService) {
 	this.push = function(data) {
 		var deferred = $q.defer();
 
+		var now = Date.create();
 		var sentData = [];
 		angular.forEach(data, function(datum) {
 			var formattedData = {};
-			formattedData['_timestamp'] = datum.timestamp;
+			var dateTime = now.get(datum.timestamp);
+			formattedData['_timestamp'] = Math.floor(dateTime.getTime() / 1000);
 			formattedData[datum.name] = datum.value;
 			sentData.push(formattedData);
 		});
 
-		var serviceUrl = SettingService.get('service_url') || 'http://dev-tracker.dev';
-		$http.post(serviceUrl + '/logs/bulk', sentData)
-		.success(function() {
-			deferred.resolve();
-		})
-		.error(function() {
-			deferred.reject();
-		});
+		ConnectionService
+			.whenOnline(function() {
+				var serviceUrl = SettingService.get('service_url') || 'http://dev-tracker.dev';
+				$http.post(serviceUrl + '/logs/bulk', sentData)
+				.success(function() {
+					deferred.resolve();
+				})
+				.error(function() {
+					deferred.reject();
+				});
+			})
+			.ifOffline(function() {
+				showToast('Data push was deferred until a network connection is available.', 'long');
+			});
 
 		return deferred.promise;
 	};
@@ -228,7 +257,7 @@ dtReminderApp.service('DataTrackerService', function($q, $http, SettingService) 
 cordova = typeof cordova !== 'undefined' ? cordova : {};
 cordova.plugins = cordova.plugins || {};
 
-dtReminderApp.service('ReminderService', function($state) {
+dtReminderApp.service('ReminderService', function($state, $q) {
 	var self = this;
 
 	// TODO: Queue function calls until device is ready?
@@ -301,6 +330,18 @@ dtReminderApp.service('ReminderService', function($state) {
 		console.log('Scheduling redminder id = ' + item.reminder.id);
 		notification.local.schedule(data);
 	};
+
+	this.getReminders = function() {
+		var deferred = $q.defer();
+
+		document.addEventListener('deviceready', function() {
+			notification.local.getAll(function(notifications) {
+				deferred.resolve(notifications);
+			});
+		});
+
+		return deferred.promise;
+	};
 });
 
 dtReminderApp.service('SettingService', function() {
@@ -328,6 +369,82 @@ dtReminderApp.service('SettingService', function() {
 
 	this.setMany = function(values) {
 		angular.extend(settings, values);
+	};
+});
+
+dtReminderApp.service('ConnectionService', function() {
+	var self = this;
+	var isOnline = false;
+	var offlineQueue = [];
+	var onlineQueue = [];
+
+	this.initialize = function() {
+		document.addEventListener('deviceready', function() {
+			console.log('Initializing ConnectionService');
+			var connectionType = navigator.network.connection.type.toLowerCase();
+			isOnline = connectionType !== 'none' && connectionType !== 'unknown';
+			console.log('ConnectionService: Connection is ' + (isOnline ? 'online' : 'offline'));
+		});
+
+		document.addEventListener('online', function() {
+			console.log('ConnectionService: Connection is now online');
+			isOnline = true;
+			online();
+		});
+
+		document.addEventListener('offline', function() {
+			console.log('ConnectionService: Connection is now offline');
+			isOnline = false;
+			offline();
+		});
+	};
+
+	var offline = function() {
+		angular.forEach(offlineQueue, function(callback) {
+			callback();
+		});
+	};
+
+	var online = function() {
+		angular.forEach(onlineQueue, function(callback) {
+			callback();
+		});
+	};
+
+	this.whenOffline = function(callback) {
+		if ( ! isOnline) {
+			callback();
+		} else {
+			offlineQueue.push(callback);
+		}
+
+		return self;
+	};
+
+	this.whenOnline = function(callback) {
+		if (isOnline) {
+			callback();
+		} else {
+			onlineQueue.push(callback);
+		}
+
+		return self;
+	};
+
+	this.ifOffline = function(callback) {
+		if ( ! isOnline) {
+			callback();
+		}
+
+		return self;
+	};
+
+	this.ifOnline = function(callback) {
+		if (isOnline) {
+			callback();
+		}
+
+		return self;
 	};
 });
 

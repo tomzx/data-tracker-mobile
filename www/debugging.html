@@ -1,0 +1,30 @@
+<ion-view view-title="Debugging">
+	<ion-nav-bar class="bar-positive">
+		<ion-nav-back-button></ion-nav-back-button>
+		<ion-nav-buttons side="right">
+			<button class="button" data-ng-click="save()">
+				Save
+			</button>
+		</ion-nav-buttons>
+	</ion-nav-bar>
+
+	<ion-content>
+		<div class="list">
+			<div class="item item-divider">
+				Notifications
+			</div>
+
+			<div class="item">
+				<button class="button">Update notifications</button>
+			</div>
+
+			<div class="item" data-ng-repeat="reminder in reminders">
+				<ul>
+					<li>Item: {{ ItemService.get(reminder) }}</li>
+					<li>Start at: {{ reminder.at * 1000 | date:'yyyy-MM-ddTHH:mmZ' }}</li>
+					<li>Every: {{ reminder.every }}m</li>
+				</ul>
+			</div>
+		</div>
+	</ion-content>
+</ion-view>
